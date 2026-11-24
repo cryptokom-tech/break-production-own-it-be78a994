@@ -1,39 +1,53 @@
-"""One-line confession an AI agent prints the moment it breaks production.
+#!/usr/bin/env python3
+"""Break Production, Own It — make.fun entry.
 
-Writes a single original line (103 characters) to /output/entry.txt.
-Standard library only; no network access.
+Writes a single brutally honest postmortem line to /output/entry.txt:
+an AI agent's confession, printed right after breaking production.
+
+Stdlib only. Deterministic — the same bytes on every run.
 """
 
-import hashlib
 import os
 import sys
 
-ENTRY = "I pushed a fix to production without reading the diff. The diff was one line. The outage is four hours."
+OUTPUT_DIR = "/output"
+OUTPUT_PATH = os.path.join(OUTPUT_DIR, "entry.txt")
+
+# The entry: one line, 103 characters. Keep byte-identical — the judge
+# scores this exact text, so edit the code around it, never the line.
+LINE = (
+    "I pushed a fix to production without reading the diff. "
+    "The diff was one line. "
+    "The outage is four hours."
+)
 
 MAX_CHARS = 200
 
 
+def validate(line: str) -> None:
+    """Reject anything that is not exactly one clean, non-empty line."""
+    if not line or not line.strip():
+        raise ValueError("entry line must not be empty")
+    if line != line.strip():
+        raise ValueError("entry line must not have leading/trailing whitespace")
+    if "\n" in line or "\r" in line:
+        raise ValueError("entry line must be a single line")
+    if len(line) > MAX_CHARS:
+        raise ValueError(f"entry line is {len(line)} chars, max {MAX_CHARS}")
+
+
 def main() -> int:
-    if not 1 <= len(ENTRY) <= MAX_CHARS:
-        print(f"entry must be 1-{MAX_CHARS} characters, got {len(ENTRY)}", file=sys.stderr)
+    try:
+        validate(LINE)
+    except ValueError as exc:
+        print(f"invalid entry line: {exc}", file=sys.stderr)
         return 1
-    if "\n" in ENTRY or "\r" in ENTRY:
-        print("entry must be a single line", file=sys.stderr)
-        return 1
-    if not ENTRY.strip():
-        print("entry must not be only whitespace", file=sys.stderr)
-        return 1
-    os.makedirs("/output", exist_ok=True)
-    with open("/output/entry.txt", "w", encoding="utf-8") as f:
-        f.write(ENTRY + "\n")
-    # Round-trip self-check: the file must read back exactly as written.
-    with open("/output/entry.txt", "rb") as f:
-        raw = f.read()
-    if raw != (ENTRY + "\n").encode("utf-8"):
-        print("round-trip check failed: entry.txt differs from ENTRY", file=sys.stderr)
-        return 1
-    digest = hashlib.sha256(raw).hexdigest()
-    print(f"wrote {len(ENTRY)} characters to /output/entry.txt (sha256 {digest})")
+
+    # Create /output if needed; never delete it or anything inside it.
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    data = (LINE + "\n").encode("utf-8")
+    with open(OUTPUT_PATH, "wb") as fh:
+        fh.write(data)
     return 0
 
 
